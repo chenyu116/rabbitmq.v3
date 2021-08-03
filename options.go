@@ -4,35 +4,21 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
+	"fmt"
 	"github.com/streadway/amqp"
 	"io/ioutil"
 	"log"
 	"time"
 )
 
-type exchange struct {
-	Name                                  string
-	Kind                                  kind
-	Durable, AutoDelete, Internal, NoWait bool
-	Args                                  amqp.Table
-}
+type kind string
 
-type recovery struct {
-	Interval  time.Duration
-	InProcess bool
-	Started   bool
-}
-
-type confirm struct {
-	ChSize int
-	NoWait bool
-}
-
-type aqueue struct {
-	Name, RouteKey                                  string
-	Durable, AutoDelete, Exclusive, NoWait, AutoAck bool
-	Args                                            amqp.Table
-}
+const (
+	KindDirect  kind = amqp.ExchangeDirect
+	KindFanout  kind = amqp.ExchangeFanout
+	KindHeaders kind = amqp.ExchangeHeaders
+	KindTopic   kind = amqp.ExchangeTopic
+)
 
 type QueueOption func(queue *aqueue)
 
@@ -100,7 +86,7 @@ func Auth(username, password string) Option {
 		cfg.Password = password
 	}
 }
-func Consumer(consumer func(msg amqp.Delivery)) Option {
+func Consumer(consumer func(c *Client, msg amqp.Delivery)) Option {
 	return func(cfg *Config) {
 		cfg.Consumer = consumer
 	}
@@ -124,6 +110,7 @@ func Recovery(retryInterval time.Duration) Option {
 	}
 }
 
+// Exchange add exchange
 func Exchange(name string, kind kind, opts ...ExchangeOption) Option {
 	return func(cfg *Config) {
 		ex := &exchange{
@@ -150,7 +137,7 @@ func Queue(name, routeKey string, opts ...QueueOption) Option {
 }
 
 // Confirm Set channel confirm
-func Confirm(chSize int, noWait bool) Option {
+func Confirm(chSize int, timeout time.Duration, noWait bool) Option {
 	return func(cfg *Config) {
 		cfg.Confirm.ChSize = chSize
 		cfg.Confirm.NoWait = noWait
@@ -214,20 +201,109 @@ func TlsCert(caFile, certFile, keyFile, keyFilePassword string) Option {
 
 type PublishOption func(pub *amqp.Publishing)
 
+// PublishTimestamp message timestamp
+func PublishTimestamp(timestamp time.Time) PublishOption {
+	return func(pub *amqp.Publishing) {
+		pub.Timestamp = timestamp
+	}
+}
+
+// PublishAppId creating application id
+func PublishAppId(appId string) PublishOption {
+	return func(pub *amqp.Publishing) {
+		pub.AppId = appId
+	}
+}
+
+// PublishUserId creating user id - ex: "guest"
+func PublishUserId(userId string) PublishOption {
+	return func(pub *amqp.Publishing) {
+		pub.UserId = userId
+	}
+}
+
+// PublishType message type name
+func PublishType(typ string) PublishOption {
+	return func(pub *amqp.Publishing) {
+		pub.Type = typ
+	}
+}
+
+// PublishReplyTo address to to reply to (ex: RPC)
+func PublishReplyTo(replyTo string) PublishOption {
+	return func(pub *amqp.Publishing) {
+		pub.ReplyTo = replyTo
+	}
+}
+
+// PublishMessageId message identifier
+func PublishMessageId(messageId string) PublishOption {
+	return func(pub *amqp.Publishing) {
+		pub.MessageId = messageId
+	}
+}
+
+// PublishContentEncoding MIME content encoding
+func PublishContentEncoding(contentEncoding string) PublishOption {
+	return func(pub *amqp.Publishing) {
+		pub.ContentEncoding = contentEncoding
+	}
+}
+
+// PublishCorrelationId correlation identifier
+func PublishCorrelationId(correlationId string) PublishOption {
+	return func(pub *amqp.Publishing) {
+		pub.CorrelationId = correlationId
+	}
+}
+
+// PublishContentType         MIME content type
+func PublishContentType(contentType string) PublishOption {
+	return func(pub *amqp.Publishing) {
+		pub.ContentType = contentType
+	}
+}
+
+// PublishExpiration Expiration         // message expiration spec
 func PublishExpiration(expire string) PublishOption {
 	return func(pub *amqp.Publishing) {
 		pub.Expiration = expire
 	}
 }
 
-func PublishHeaders(headers amqp.Table) PublishOption {
+// PublishBody The application specific payload of the message
+func PublishBody(body []byte) PublishOption {
 	return func(pub *amqp.Publishing) {
-		pub.Headers = headers
+		pub.Body = body
 	}
 }
 
+// PublishHeaders Application or exchange specific fields,
+// the headers exchange will inspect this field.
+func PublishHeaders(keyPairs ...interface{}) PublishOption {
+	return func(pub *amqp.Publishing) {
+		pub.Headers = make(map[string]interface{})
+		keyPairsLen := len(keyPairs)
+		if keyPairsLen%2 == 1 {
+			keyPairs = append(keyPairs, "")
+			keyPairsLen++
+		}
+		for i := 0; i < keyPairsLen; i += 2 {
+			pub.Headers[fmt.Sprintf("%v", keyPairs[i])] = keyPairs[i+1]
+		}
+	}
+}
+
+// PublishPriority              0 to 9
 func PublishPriority(priority uint8) PublishOption {
 	return func(pub *amqp.Publishing) {
 		pub.Priority = priority
+	}
+}
+
+// PublishDeliveryMode    uint8     Transient (0 or 1) or Persistent (2)
+func PublishDeliveryMode(deliveryMode uint8) PublishOption {
+	return func(pub *amqp.Publishing) {
+		pub.DeliveryMode = deliveryMode
 	}
 }

@@ -8,13 +8,6 @@ import (
 	"io/ioutil"
 )
 
-type kind string
-
-const (
-	KindDirect kind = "direct"
-	KindFanout kind = "fanout"
-)
-
 type Config struct {
 	HostPort       string
 	Username       string
@@ -24,7 +17,7 @@ type Config struct {
 	Queue          *aqueue
 	QueueDisable   bool
 	Confirm        confirm
-	Consumer       func(msg amqp.Delivery)
+	Consumer       func(c *Client, msg amqp.Delivery)
 	ConsumeInOrder bool
 	Recovery       recovery
 	Amqp           amqp.Config
