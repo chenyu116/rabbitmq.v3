@@ -28,3 +28,9 @@ type queue struct {
 	Durable, AutoDelete, Exclusive, NoWait, AutoAck bool
 	Args                                            amqp.Table
 }
+
+type DefiniteMessage struct {
+	Id       string `json:"id"`
+	From     string `json:"from"`
+	Exchange string `json:"exchange"`
+}

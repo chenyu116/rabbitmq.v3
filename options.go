@@ -27,6 +27,12 @@ func QueueDurable() QueueOption {
 		queue.Durable = true
 	}
 }
+func QueueConsumeAutoAck() QueueOption {
+	return func(queue *queue) {
+		queue.AutoAck = true
+	}
+}
+
 func QueueAutoDelete() QueueOption {
 	return func(queue *queue) {
 		queue.AutoDelete = true
@@ -80,24 +86,38 @@ func ExchangeArgs(args amqp.Table) ExchangeOption {
 
 type Option func(cfg *Config)
 
+// Debug display debug log
 func Debug() Option {
 	return func(cfg *Config) {
 		cfg.log.SetLevel(log.DebugLevel)
 	}
 }
 
+// Auth set rabbitmq login username and password
 func Auth(username, password string) Option {
 	return func(cfg *Config) {
 		cfg.Username = username
 		cfg.Password = password
 	}
 }
+
+// DefaultConsumer add default consumer to queue
+func DefaultConsumer() Option {
+	return func(cfg *Config) {
+		cfg.Consumer = func(_ *Client, msg amqp.Delivery) {
+			msg.Ack(false)
+		}
+	}
+}
+
+// Consumer set queue consumer
 func Consumer(consumer func(c *Client, msg amqp.Delivery)) Option {
 	return func(cfg *Config) {
 		cfg.Consumer = consumer
 	}
 }
 
+// ConsumeInOrder consume message in order
 func ConsumeInOrder() Option {
 	return func(cfg *Config) {
 		cfg.ConsumeInOrder = true
@@ -303,14 +323,14 @@ func PublishHeaders(keyPairs ...interface{}) PublishOption {
 	}
 }
 
-// PublishPriority              0 to 9
+// PublishPriority 0 to 9
 func PublishPriority(priority uint8) PublishOption {
 	return func(pub *amqp.Publishing) {
 		pub.Priority = priority
 	}
 }
 
-// PublishDeliveryMode    uint8     Transient (0 or 1) or Persistent (2)
+// PublishDeliveryMode Transient (0 or 1) or Persistent (2)
 func PublishDeliveryMode(deliveryMode uint8) PublishOption {
 	return func(pub *amqp.Publishing) {
 		pub.DeliveryMode = deliveryMode

@@ -1,6 +1,7 @@
 package rabbitmq
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
@@ -10,6 +11,10 @@ import (
 	"strconv"
 	"sync"
 	"time"
+)
+
+const (
+	xDefinite = "x-definite"
 )
 
 func init() {
@@ -115,7 +120,6 @@ func (c *Client) consume() {
 		"prod":   "rabbitmq.v3",
 		"method": fmt.Sprintf("queue(%s) consume", c.config.Queue.Name),
 	})
-	entry.Debug("called")
 	if c.config.Consumer == nil {
 		entry.Debug("no consumer")
 		return
@@ -184,9 +188,8 @@ func (c *Client) recovery() {
 	recoveryTicker := time.NewTicker(c.config.Recovery.Interval)
 	c.config.Recovery.InProgress = false
 	for range recoveryTicker.C {
-		entry.Debug("ticker called")
+		entry.Debug("recovery ticker called")
 		if !c.isClosed() || c.config.Recovery.InProgress {
-			entry.Debug("in progress,continue")
 			continue
 		}
 		entry.Debug("recovery start")
@@ -213,6 +216,26 @@ func (c *Client) Close() {
 
 func (c *Client) isClosed() bool {
 	return c.conn == nil || c.conn.IsClosed()
+}
+
+func (c *Client) ParseDefiniteMessage(msg amqp.Delivery) (dm DefiniteMessage, ok bool) {
+	entry := c.config.log.WithFields(log.Fields{
+		"prod":   "rabbitmq.v3",
+		"method": fmt.Sprintf("queue(%s) ParseDefiniteMessage", c.config.Queue.Name),
+	})
+	if msg.Headers == nil {
+		return
+	}
+
+	if data, ok1 := msg.Headers[xDefinite]; ok1 {
+		err := json.Unmarshal(data.([]byte), &dm)
+		if err != nil {
+			entry.Debugf("parse x-definite error(%v)", err)
+			return
+		}
+		ok = true
+	}
+	return
 }
 
 // Publish send message
@@ -278,6 +301,26 @@ func (c *Client) PublishDefinite(exchange, routeKey string, opts ...PublishOptio
 		err = errors.New("channel closed")
 		return
 	}
+	if c.config.Queue.RouteKey == "" {
+		err = errors.New("the queue route key must be set")
+		return
+	}
+	if c.config.Consumer == nil {
+		err = errors.New("the consumer must be set")
+		return
+	}
+	bindExchange := false
+	for _, ex := range c.config.Exchanges {
+		if ex.Name == exchange {
+			bindExchange = true
+			break
+		}
+	}
+
+	if !bindExchange {
+		err = errors.New("the same exchange must be set")
+		return
+	}
 	entry := c.config.log.WithFields(log.Fields{
 		"prod":   "rabbitmq.v3",
 		"method": fmt.Sprintf("queue(%s) PublishDefinite", c.config.Queue.Name),
@@ -292,8 +335,16 @@ func (c *Client) PublishDefinite(exchange, routeKey string, opts ...PublishOptio
 
 	id := uuid.NewString()
 
-	msg.Headers["x-definite"] = id
-	msg.Headers["x-definite-from"] = c.config.Queue.Name
+	dm := DefiniteMessage{
+		Id:       id,
+		From:     c.config.Queue.RouteKey,
+		Exchange: exchange,
+	}
+
+	msg.Headers[xDefinite], err = json.Marshal(dm)
+	if err != nil {
+		return
+	}
 
 	timeout := time.Second * 10
 	if c.config.Confirm.Timeout > 0 {

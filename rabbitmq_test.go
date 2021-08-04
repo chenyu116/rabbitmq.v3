@@ -19,7 +19,6 @@ func TestClient_Publish(t *testing.T) {
 		Consumer(func(c *Client, msg amqp.Delivery) {
 			msg.Ack(false)
 		}),
-		Confirm(1, time.Second*3, false),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -28,11 +27,6 @@ func TestClient_Publish(t *testing.T) {
 	c2, err := New(addr,
 		Auth("guest", "guest"),
 		Heartbeat(time.Second*2),
-		Queue("tester1", "tester1", QueueDurable()),
-		Exchange("amq.direct", KindDirect, ExchangeDurable()),
-		Consumer(func(c *Client, msg amqp.Delivery) {
-			msg.Ack(false)
-		}),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -41,6 +35,8 @@ func TestClient_Publish(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	_ = c1
+	_ = c2
 	c1.Close()
 	c2.Close()
 }
@@ -52,16 +48,12 @@ func TestClient_PublishDefinite(t *testing.T) {
 		Queue("tester", "tester", QueueDurable()),
 		Exchange("amq.direct", KindDirect, ExchangeDurable()),
 		Consumer(func(c *Client, msg amqp.Delivery) {
-			msg.Ack(false)
-			if msg.Headers != nil {
-				id, ok := msg.Headers["x-definite"]
-				from, ok1 := msg.Headers["x-definite-from"]
-				if ok && ok1 {
-					c.Publish("amq.direct", from.(string), PublishHeaders("x-re-definite", id))
-				}
+			dm, ok := c.ParseDefiniteMessage(msg)
+			if ok {
+				c.Publish(dm.Exchange, dm.From, PublishHeaders("x-re-definite", dm.Id))
 			}
+			msg.Ack(false)
 		}),
-		Confirm(1, time.Second*3, false),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -69,13 +61,10 @@ func TestClient_PublishDefinite(t *testing.T) {
 
 	c, err := New(addr,
 		Auth("guest", "guest"),
-		Heartbeat(time.Second*2),
-		Queue("tester1", "tester1", QueueDurable()),
+		Queue("sender", "sender", QueueAutoDelete()),
 		Exchange("amq.direct", KindDirect, ExchangeDurable()),
-		Consumer(func(c *Client, msg amqp.Delivery) {
-			msg.Ack(false)
-		}),
-		Confirm(1, time.Second*3, false),
+		Heartbeat(time.Second*2),
+		DefaultConsumer(),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -84,5 +73,4 @@ func TestClient_PublishDefinite(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
 }
