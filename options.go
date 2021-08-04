@@ -5,9 +5,9 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	log "github.com/sirupsen/logrus"
 	"github.com/streadway/amqp"
 	"io/ioutil"
-	"log"
 	"time"
 )
 
@@ -20,31 +20,31 @@ const (
 	KindTopic   kind = amqp.ExchangeTopic
 )
 
-type QueueOption func(queue *aqueue)
+type QueueOption func(queue *queue)
 
 func QueueDurable() QueueOption {
-	return func(queue *aqueue) {
+	return func(queue *queue) {
 		queue.Durable = true
 	}
 }
 func QueueAutoDelete() QueueOption {
-	return func(queue *aqueue) {
+	return func(queue *queue) {
 		queue.AutoDelete = true
 	}
 }
 func QueueExclusive() QueueOption {
-	return func(queue *aqueue) {
+	return func(queue *queue) {
 		queue.Exclusive = true
 	}
 }
 func QueueNoWait() QueueOption {
-	return func(queue *aqueue) {
+	return func(queue *queue) {
 		queue.NoWait = true
 	}
 }
 
 func QueueArgs(args amqp.Table) QueueOption {
-	return func(queue *aqueue) {
+	return func(queue *queue) {
 		queue.Args = args
 	}
 }
@@ -80,6 +80,12 @@ func ExchangeArgs(args amqp.Table) ExchangeOption {
 
 type Option func(cfg *Config)
 
+func Debug() Option {
+	return func(cfg *Config) {
+		log.SetLevel(log.DebugLevel)
+	}
+}
+
 func Auth(username, password string) Option {
 	return func(cfg *Config) {
 		cfg.Username = username
@@ -110,7 +116,7 @@ func Recovery(retryInterval time.Duration) Option {
 	}
 }
 
-// Exchange add exchange
+// Exchange add exchange,support multiple
 func Exchange(name string, kind kind, opts ...ExchangeOption) Option {
 	return func(cfg *Config) {
 		ex := &exchange{
@@ -123,16 +129,17 @@ func Exchange(name string, kind kind, opts ...ExchangeOption) Option {
 		cfg.Exchanges = append(cfg.Exchanges, ex)
 	}
 }
+
+// Queue set queue properties
 func Queue(name, routeKey string, opts ...QueueOption) Option {
 	return func(cfg *Config) {
-		cfg.Queue = &aqueue{
+		cfg.Queue = &queue{
 			Name:     name,
 			RouteKey: routeKey,
 		}
 		for _, o := range opts {
 			o(cfg.Queue)
 		}
-		log.Printf("%+v", cfg.Queue)
 	}
 }
 
@@ -141,9 +148,11 @@ func Confirm(chSize int, timeout time.Duration, noWait bool) Option {
 	return func(cfg *Config) {
 		cfg.Confirm.ChSize = chSize
 		cfg.Confirm.NoWait = noWait
+		cfg.Confirm.Timeout = timeout
 	}
 }
 
+// QueueDisable do not create queue
 func QueueDisable() Option {
 	return func(cfg *Config) {
 		cfg.QueueDisable = true

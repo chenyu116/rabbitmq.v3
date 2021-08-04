@@ -6,53 +6,53 @@ import (
 	"time"
 )
 
-//func TestClient_Publish(t *testing.T) {
-//	_, err := New("192.168.1.2:5672",
-//		Auth("guest", "guest"),
-//		Heartbeat(time.Second*2),
-//		Queue("tester", "tester", QueueDurable()),
-//		Exchange("amq.direct", KindDirect, ExchangeDurable()),
-//		Consumer(func(msg amqp.Delivery) {
-//			msg.Ack(false)
-//		}),
-//		Confirm(1, time.Second*3, false),
-//		VHost("dash-dbvd"),
-//	)
-//	if err != nil {
-//		t.Fatal(err)
-//	}
-//
-//	c, err := New("192.168.1.2:5672",
-//		Auth("guest", "guest"),
-//		Heartbeat(time.Second*2),
-//		Queue("tester1", "tester1", QueueDurable()),
-//		Exchange("amq.direct", KindDirect, ExchangeDurable()),
-//		//Consumer(func(msg amqp.Delivery) {
-//		//	t.Fatalf("msg: %s", msg.Body)
-//		//	msg.Ack(false)
-//		//}),
-//		VHost("dash-dbvd"),
-//	)
-//	if err != nil {
-//		t.Fatal(err)
-//	}
-//	_ = c
-//
-//	err = c.Publish("amq.direct", "tester", PublishBody([]byte("tester body")), PublishReplyTo("grpc"))
-//	if err != nil {
-//		t.Fatal(err)
-//	}
-//}
+const (
+	addr = "192.168.101.232:5672"
+)
 
-func TestClient_PublishDefinite(t *testing.T) {
-	_, err := New("192.168.1.2:5672",
+func TestClient_Publish(t *testing.T) {
+	c1, err := New(addr,
 		Auth("guest", "guest"),
 		Heartbeat(time.Second*2),
 		Queue("tester", "tester", QueueDurable()),
 		Exchange("amq.direct", KindDirect, ExchangeDurable()),
 		Consumer(func(c *Client, msg amqp.Delivery) {
 			msg.Ack(false)
-			t.Logf("[Consumer]tester msg: %+v", msg)
+		}),
+		Confirm(1, time.Second*3, false),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	c2, err := New(addr,
+		Auth("guest", "guest"),
+		Heartbeat(time.Second*2),
+		Queue("tester1", "tester1", QueueDurable()),
+		Exchange("amq.direct", KindDirect, ExchangeDurable()),
+		Consumer(func(c *Client, msg amqp.Delivery) {
+			msg.Ack(false)
+		}),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = c2.Publish("amq.direct", "tester", PublishBody([]byte("tester1 body")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	c1.Close()
+	c2.Close()
+}
+
+func TestClient_PublishDefinite(t *testing.T) {
+	_, err := New(addr,
+		Auth("guest", "guest"),
+		Heartbeat(time.Second*2),
+		Queue("tester", "tester", QueueDurable()),
+		Exchange("amq.direct", KindDirect, ExchangeDurable()),
+		Consumer(func(c *Client, msg amqp.Delivery) {
+			msg.Ack(false)
 			if msg.Headers != nil {
 				id, ok := msg.Headers["x-definite"]
 				from, ok1 := msg.Headers["x-definite-from"]
@@ -60,38 +60,29 @@ func TestClient_PublishDefinite(t *testing.T) {
 					c.Publish("amq.direct", from.(string), PublishHeaders("x-re-definite", id))
 				}
 			}
-
-			//t.Fatalf("[Consumer]tester msg: %+v", msg)
-
 		}),
 		Confirm(1, time.Second*3, false),
-		VHost("dash-dbvd"),
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	c, err := New("192.168.1.2:5672",
+	c, err := New(addr,
 		Auth("guest", "guest"),
 		Heartbeat(time.Second*2),
 		Queue("tester1", "tester1", QueueDurable()),
 		Exchange("amq.direct", KindDirect, ExchangeDurable()),
 		Consumer(func(c *Client, msg amqp.Delivery) {
 			msg.Ack(false)
-			t.Logf("[Consumer]tester1 msg: %+v", msg)
 		}),
-		VHost("dash-dbvd"),
+		Confirm(1, time.Second*3, false),
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_ = c
-
-	for i := 0; i < 100; i++ {
-		err = c.PublishDefinite("amq.direct", "tester", PublishBody([]byte("tester body")))
-		if err != nil {
-			t.Fatal(err)
-		}
+	err = c.PublishDefinite("amq.direct", "tester", PublishBody([]byte("tester1 body")))
+	if err != nil {
+		t.Fatal(err)
 	}
 
 }

@@ -13,9 +13,8 @@ type exchange struct {
 }
 
 type recovery struct {
-	Interval  time.Duration
-	InProcess bool
-	Started   bool
+	Interval            time.Duration
+	InProgress, Started bool
 }
 
 type confirm struct {
@@ -24,7 +23,7 @@ type confirm struct {
 	NoWait  bool
 }
 
-type aqueue struct {
+type queue struct {
 	Name, RouteKey                                  string
 	Durable, AutoDelete, Exclusive, NoWait, AutoAck bool
 	Args                                            amqp.Table
