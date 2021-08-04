@@ -159,6 +159,11 @@ func (c *Client) consume() {
 	}
 }
 
+func (c *Client) SetConsumer(consumer func(c *Client, msg amqp.Delivery)) {
+	c.config.Consumer = consumer
+	c.Close()
+}
+
 func (c *Client) definite(id string) {
 	entry := c.config.log.WithFields(log.Fields{
 		"prod":   "rabbitmq.v3",
