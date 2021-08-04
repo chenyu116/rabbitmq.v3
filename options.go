@@ -82,7 +82,7 @@ type Option func(cfg *Config)
 
 func Debug() Option {
 	return func(cfg *Config) {
-		log.SetLevel(log.DebugLevel)
+		cfg.log.SetLevel(log.DebugLevel)
 	}
 }
 

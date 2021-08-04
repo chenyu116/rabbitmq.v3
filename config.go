@@ -1,7 +1,9 @@
 package rabbitmq
 
 import (
+	log "github.com/sirupsen/logrus"
 	"github.com/streadway/amqp"
+	"time"
 )
 
 type Config struct {
@@ -17,9 +19,23 @@ type Config struct {
 	// if ConsumeInOrder set to true,consumer will process message in order,not use goroutine
 	ConsumeInOrder bool
 	Recovery       recovery
+	log            *log.Logger
 	Amqp           amqp.Config
 }
 
 func NewConfig() *Config {
-	return new(Config)
+	return &Config{
+		PrefetchCount:  1,
+		Queue:          new(queue),
+		QueueDisable:   false,
+		ConsumeInOrder: false,
+		Confirm: confirm{
+			ChSize:  1,
+			Timeout: time.Second * 3,
+			NoWait:  false,
+		},
+		log:      log.New(),
+		Recovery: recovery{Interval: time.Second * 6},
+		Amqp:     amqp.Config{},
+	}
 }

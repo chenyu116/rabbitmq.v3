@@ -54,7 +54,7 @@ func (c *Client) connect() (err error) {
 }
 
 func (c *Client) init() (err error) {
-	entry := log.WithFields(log.Fields{
+	entry := c.config.log.WithFields(log.Fields{
 		"prod":   "rabbitmq.v3",
 		"method": fmt.Sprintf("queue(%s) init", c.config.Queue.Name),
 	})
@@ -70,7 +70,7 @@ func (c *Client) init() (err error) {
 			return
 		}
 	}
-	if !c.config.QueueDisable {
+	if c.config.Queue.Name != "" {
 		if c.config.PrefetchCount <= 0 {
 			c.config.PrefetchCount = 1
 		}
@@ -111,11 +111,11 @@ func (c *Client) init() (err error) {
 }
 
 func (c *Client) consume() {
-	entry := log.WithFields(log.Fields{
+	entry := c.config.log.WithFields(log.Fields{
 		"prod":   "rabbitmq.v3",
 		"method": fmt.Sprintf("queue(%s) consume", c.config.Queue.Name),
 	})
-
+	entry.Debug("called")
 	if c.config.Consumer == nil {
 		entry.Debug("no consumer")
 		return
@@ -156,7 +156,7 @@ func (c *Client) consume() {
 }
 
 func (c *Client) definite(id string) {
-	entry := log.WithFields(log.Fields{
+	entry := c.config.log.WithFields(log.Fields{
 		"prod":   "rabbitmq.v3",
 		"method": fmt.Sprintf("queue(%s) definite", c.config.Queue.Name),
 	})
@@ -172,7 +172,7 @@ func (c *Client) definite(id string) {
 }
 
 func (c *Client) recovery() {
-	entry := log.WithFields(log.Fields{
+	entry := c.config.log.WithFields(log.Fields{
 		"prod":   "rabbitmq.v3",
 		"method": fmt.Sprintf("queue(%s) recovery", c.config.Queue.Name),
 	})
@@ -206,8 +206,8 @@ func (c *Client) Close() {
 	if c.isClosed() {
 		return
 	}
-	c.channel.Close()
-	c.conn.Close()
+	_ = c.channel.Close()
+	_ = c.conn.Close()
 	c.conn = nil
 }
 
@@ -221,7 +221,7 @@ func (c *Client) Publish(exchange, routeKey string, opts ...PublishOption) (err 
 		err = errors.New("channel closed")
 		return
 	}
-	entry := log.WithFields(log.Fields{
+	entry := c.config.log.WithFields(log.Fields{
 		"prod":   "rabbitmq.v3",
 		"method": fmt.Sprintf("queue(%s) Publish", c.config.Queue.Name),
 	})
@@ -278,7 +278,7 @@ func (c *Client) PublishDefinite(exchange, routeKey string, opts ...PublishOptio
 		err = errors.New("channel closed")
 		return
 	}
-	entry := log.WithFields(log.Fields{
+	entry := c.config.log.WithFields(log.Fields{
 		"prod":   "rabbitmq.v3",
 		"method": fmt.Sprintf("queue(%s) PublishDefinite", c.config.Queue.Name),
 	})
@@ -358,8 +358,8 @@ func New(addr string, options ...Option) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.SetLevel(log.InfoLevel)
 	cfg := NewConfig()
+	cfg.log.SetLevel(log.InfoLevel)
 	cfg.Addr = fmt.Sprintf("%s:%s", host, port)
 	for _, o := range options {
 		o(cfg)
