@@ -10,38 +10,38 @@ const (
 	addr = "192.168.101.232:5672"
 )
 
-func TestClient_Publish(t *testing.T) {
-	c1, err := New(addr,
-		Auth("guest", "guest"),
-		Heartbeat(time.Second*2),
-		Queue("tester", "tester", QueueDurable()),
-		Exchange("amq.direct", KindDirect, ExchangeDurable()),
-		Debug(),
-		Consumer(func(c *Client, msg amqp.Delivery) {
-			msg.Ack(false)
-			t.Log("Old Consumer")
-		}),
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	c2, err := New(addr,
-		Auth("guest", "guest"),
-		Heartbeat(time.Second*2),
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = c2.Publish("amq.direct", "tester", PublishBody([]byte("tester1 body")))
-	if err != nil {
-		t.Fatal(err)
-	}
-	_ = c1
-	_ = c2
-	c1.Close()
-	c2.Close()
-}
+//func TestClient_Publish(t *testing.T) {
+//	c1, err := New(addr,
+//		Auth("guest", "guest"),
+//		Heartbeat(time.Second*2),
+//		Queue("tester", "tester", QueueDurable()),
+//		Exchange("amq.direct", KindDirect, ExchangeDurable()),
+//		Debug(),
+//		Consumer(func(c *Client, msg amqp.Delivery) {
+//			msg.Ack(false)
+//			t.Log("Old Consumer")
+//		}),
+//	)
+//	if err != nil {
+//		t.Fatal(err)
+//	}
+//
+//	c2, err := New(addr,
+//		Auth("guest", "guest"),
+//		Heartbeat(time.Second*2),
+//	)
+//	if err != nil {
+//		t.Fatal(err)
+//	}
+//	err = c2.Publish("amq.direct", "tester", PublishBody([]byte("tester1 body")))
+//	if err != nil {
+//		t.Fatal(err)
+//	}
+//	_ = c1
+//	_ = c2
+//	c1.Close()
+//	c2.Close()
+//}
 
 //func TestClient_PublishDefinite(t *testing.T) {
 //	_, err := New(addr,
@@ -84,10 +84,10 @@ func Test_ChangeConsumer(t *testing.T) {
 		Queue("tester", "tester", QueueDurable()),
 		Exchange("amq.direct", KindDirect, ExchangeDurable()),
 		Debug(),
-		Consumer(func(c *Client, msg amqp.Delivery) {
-			msg.Ack(false)
-			t.Log("Old Consumer")
-		}),
+		//Consumer(func(c *Client, msg amqp.Delivery) {
+		//	msg.Ack(false)
+		//	t.Log("Old Consumer")
+		//}),
 	)
 	if err != nil {
 		t.Fatal(err)

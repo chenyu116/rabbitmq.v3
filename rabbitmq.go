@@ -160,7 +160,12 @@ func (c *Client) consume() {
 }
 
 func (c *Client) SetConsumer(consumer func(c *Client, msg amqp.Delivery)) {
+	canStart := c.config.Consumer == nil
 	c.config.Consumer = consumer
+	if canStart {
+		go c.consume()
+		return
+	}
 	c.Close()
 }
 
