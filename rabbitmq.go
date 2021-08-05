@@ -15,6 +15,8 @@ import (
 
 const (
 	xDefinite = "x-definite"
+
+	defaultSendTimeout = time.Second * 10
 )
 
 func init() {
@@ -120,8 +122,8 @@ func (c *Client) consume() {
 		"prod":   "rabbitmq.v3",
 		"method": fmt.Sprintf("queue(%s) consume", c.config.Queue.Name),
 	})
-	if c.config.Consumer == nil {
-		entry.Debug("no consumer")
+	if c.config.Queue.Name == "" {
+		entry.Debug("no queue,consume will not start")
 		return
 	}
 	defer func() {
@@ -151,6 +153,12 @@ func (c *Client) consume() {
 			go c.definite(id.(string))
 			continue
 		}
+
+		if c.config.Consumer == nil {
+			entry.Debugf("queue(%s) no consumer,continue", c.config.Queue.Name)
+			_ = d.Nack(false, false)
+			continue
+		}
 		if c.config.ConsumeInOrder {
 			c.config.Consumer(c, d)
 		} else {
@@ -160,13 +168,7 @@ func (c *Client) consume() {
 }
 
 func (c *Client) SetConsumer(consumer func(c *Client, msg amqp.Delivery)) {
-	canStart := c.config.Consumer == nil
 	c.config.Consumer = consumer
-	if canStart {
-		go c.consume()
-		return
-	}
-	c.Close()
 }
 
 func (c *Client) definite(id string) {
@@ -194,11 +196,11 @@ func (c *Client) recovery() {
 		entry.Debug("already started,return")
 		return
 	}
+	defer entry.Debug("stopped")
 	c.config.Recovery.Started = true
 	recoveryTicker := time.NewTicker(c.config.Recovery.Interval)
 	c.config.Recovery.InProgress = false
 	for range recoveryTicker.C {
-		entry.Debug("recovery ticker called")
 		if !c.isClosed() || c.config.Recovery.InProgress {
 			continue
 		}
@@ -262,7 +264,7 @@ func (c *Client) Publish(exchange, routeKey string, opts ...PublishOption) (err 
 	for _, o := range opts {
 		o(msg)
 	}
-	timeout := time.Second * 10
+	timeout := defaultSendTimeout
 	if c.config.Confirm.Timeout > 0 {
 		timeout = c.config.Confirm.Timeout
 	}
@@ -311,14 +313,11 @@ func (c *Client) PublishDefinite(exchange, routeKey string, opts ...PublishOptio
 		err = errors.New("channel closed")
 		return
 	}
-	if c.config.Queue.RouteKey == "" {
-		err = errors.New("the queue route key must be set")
+	if c.config.Queue.Name == "" {
+		err = errors.New("the queue must be set")
 		return
 	}
-	if c.config.Consumer == nil {
-		err = errors.New("the consumer must be set")
-		return
-	}
+
 	bindExchange := false
 	for _, ex := range c.config.Exchanges {
 		if ex.Name == exchange {
@@ -328,7 +327,7 @@ func (c *Client) PublishDefinite(exchange, routeKey string, opts ...PublishOptio
 	}
 
 	if !bindExchange {
-		err = errors.New("the same exchange must be set")
+		err = errors.New("the same exchange needed")
 		return
 	}
 	entry := c.config.log.WithFields(log.Fields{
@@ -356,23 +355,26 @@ func (c *Client) PublishDefinite(exchange, routeKey string, opts ...PublishOptio
 		return
 	}
 
-	timeout := time.Second * 10
+	timeout := defaultSendTimeout
 	if c.config.Confirm.Timeout > 0 {
 		timeout = c.config.Confirm.Timeout
 	}
+
 	if msg.Expiration != "" {
 		expiration, e := strconv.Atoi(msg.Expiration)
 		if e != nil {
 			return e
 		}
+
 		if expiration <= 0 {
 			return errors.New("expiration invalid")
 		}
+
 		timeout = time.Duration(expiration) * time.Millisecond
 	} else {
 		now := time.Now()
-		s := now.Add(timeout).Sub(now).Seconds() * 1000
-		msg.Expiration = fmt.Sprintf("%v", s)
+		seconds := now.Add(timeout).Sub(now).Seconds() * 1000
+		msg.Expiration = fmt.Sprintf("%v", seconds)
 	}
 
 	entry.Debugf("message(%+v)", msg)
