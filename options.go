@@ -110,6 +110,13 @@ func DefaultConsumer() Option {
 	}
 }
 
+// ConsumerTag set queue consumer tag
+func ConsumerTag(consumerTag string) Option {
+	return func(cfg *Config) {
+		cfg.ConsumerTag = consumerTag
+	}
+}
+
 // Consumer set queue consumer
 func Consumer(consumer func(c *Client, msg amqp.Delivery)) Option {
 	return func(cfg *Config) {

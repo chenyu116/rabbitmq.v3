@@ -16,6 +16,7 @@ type Config struct {
 	QueueDisable  bool
 	Confirm       confirm
 	Consumer      func(c *Client, msg amqp.Delivery)
+	ConsumerTag   string
 	// if ConsumeInOrder set to true,consumer will process message in order,not use goroutine
 	ConsumeInOrder bool
 	Recovery       recovery

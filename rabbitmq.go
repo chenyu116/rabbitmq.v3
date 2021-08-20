@@ -129,9 +129,12 @@ func (c *Client) consume() {
 	defer func() {
 		entry.Debug("stopped")
 	}()
+	if c.config.ConsumerTag == "" {
+		c.config.ConsumerTag = c.config.Queue.Name
+	}
 	messages, err := c.channel.Consume(
 		c.config.Queue.Name,      // queue
-		c.config.Queue.Name,      // consumer
+		c.config.ConsumerTag,     // consumer
 		c.config.Queue.AutoAck,   // auto-ack
 		c.config.Queue.Exclusive, // exclusive
 		false,                    // no-local

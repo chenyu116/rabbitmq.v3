@@ -45,7 +45,6 @@ func TestClient_PublishDefinite(t *testing.T) {
 	c2.Close()
 }
 
-
 func TestClient_Publish(t *testing.T) {
 	c1, err := New(addr,
 		Auth("guest", "guest"),
@@ -109,3 +108,18 @@ func Test_ChangeConsumer(t *testing.T) {
 	c2.Close()
 }
 
+func TestClient_ConsumerTag(t *testing.T) {
+	c1, err := New(addr,
+		Auth("guest", "guest"),
+		Heartbeat(time.Second*2),
+		Queue("tester", "tester", QueueDurable()),
+		Exchange("amq.direct", KindDirect, ExchangeDurable()),
+		ConsumerTag("tester-1"),
+		DefaultConsumer(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = c1
+	c1.Close()
+}
