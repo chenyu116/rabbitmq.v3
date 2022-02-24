@@ -78,10 +78,10 @@ func (c *Client) init() (err error) {
 		}
 	}
 	if c.config.Queue.Name != "" {
-		if c.config.PrefetchCount <= 0 {
-			c.config.PrefetchCount = 1
+		if c.config.Qos.PrefetchCount < 0 {
+			c.config.Qos.PrefetchCount = 0
 		}
-		err = c.channel.Qos(c.config.PrefetchCount, 0, false)
+		err = c.channel.Qos(c.config.Qos.PrefetchCount, c.config.Qos.PrefetchSize, c.config.Qos.Global)
 		if err != nil {
 			return
 		}
@@ -159,7 +159,7 @@ func (c *Client) consume() {
 
 		if c.config.Consumer == nil {
 			entry.Debugf("queue(%s) no consumer,continue", c.config.Queue.Name)
-			_ = d.Nack(false, false)
+			time.Sleep(time.Second)
 			continue
 		}
 		if c.config.ConsumeInOrder {

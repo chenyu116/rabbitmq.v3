@@ -131,9 +131,28 @@ func ConsumeInOrder() Option {
 	}
 }
 
+// PrefetchCount deprecated
 func PrefetchCount(count int) Option {
 	return func(cfg *Config) {
 		cfg.PrefetchCount = count
+	}
+}
+
+func QosPrefetchCount(count int) Option {
+	return func(cfg *Config) {
+		cfg.Qos.PrefetchCount = count
+	}
+}
+
+func QosGlobal(global bool) Option {
+	return func(cfg *Config) {
+		cfg.Qos.Global = global
+	}
+}
+
+func QosPrefetchSize(size int) Option {
+	return func(cfg *Config) {
+		cfg.Qos.PrefetchSize = size
 	}
 }
 

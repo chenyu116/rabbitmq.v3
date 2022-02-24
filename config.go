@@ -6,11 +6,19 @@ import (
 	"time"
 )
 
-type Config struct {
-	Addr          string
-	Username      string
-	Password      string
+type Qos struct {
 	PrefetchCount int
+	PrefetchSize  int
+	Global        bool
+}
+
+type Config struct {
+	Addr     string
+	Username string
+	Password string
+	//deprecated
+	PrefetchCount int
+	Qos           Qos
 	Exchanges     []*exchange
 	Queue         *queue
 	QueueDisable  bool
@@ -26,7 +34,11 @@ type Config struct {
 
 func NewConfig() *Config {
 	return &Config{
-		PrefetchCount:  1,
+		Qos: Qos{
+			PrefetchCount: 1,
+			PrefetchSize:  0,
+			Global:        false,
+		},
 		Queue:          new(queue),
 		QueueDisable:   false,
 		ConsumeInOrder: false,
